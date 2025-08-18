@@ -16,19 +16,38 @@ import (
 var indexTemplate *template.Template
 
 func init() {
-	path := filepath.Join("..", "index.html")
-	var err error
-	indexTemplate, err = template.ParseFiles(path)
-	if err != nil {
-		log.Fatalf("Failed to parse template: %v", err)
+	// Ищем index.html в нескольких возможных местах
+	possiblePaths := []string{
+		"index.html",
+		filepath.Join("..", "index.html"),
+		filepath.Join("internal", "handlers", "index.html"),
 	}
+
+	var err error
+	for _, path := range possiblePaths {
+		if _, statErr := os.Stat(path); statErr == nil {
+			indexTemplate, err = template.ParseFiles(path)
+			if err == nil {
+				return
+			}
+		}
+	}
+
+	log.Fatalf("Failed to find and parse index.html in any of: %v", possiblePaths)
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	if err := indexTemplate.Execute(w, nil); err != nil {
 		http.Error(w, "Error rendering template", http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 }
 
 func UploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +63,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	file, header, err := r.FormFile("myFile")
 	if err != nil {
-		http.Error(w, "Error retrieving the fil", http.StatusBadRequest)
+		http.Error(w, "Error retrieving the file", http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
@@ -60,7 +79,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	
+
 	validUTF8 := strings.ToValidUTF8(result, "")
 	fileName := time.Now().UTC().Format("20060102150405") + filepath.Ext(header.Filename)
 	if err := os.WriteFile(fileName, []byte(validUTF8), 0644); err != nil {
