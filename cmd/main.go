@@ -9,10 +9,9 @@ import (
 
 func main() {
 	logger := log.New(os.Stdout, "morse: ", log.LstdFlags|log.Lshortfile)
-
 	srv := server.New(logger)
+	
 	if err := srv.Start(); err != nil {
 		logger.Fatal(err)
 	}
-
 }
