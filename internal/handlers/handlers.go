@@ -3,6 +3,7 @@ package handlers
 import (
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,11 +15,25 @@ import (
 
 var indexTemplate *template.Template
 
-func LoadTemplate() error {
-	path := filepath.Join("..", "index.html")
+func init() {
+	// Ищем index.html в нескольких возможных местах
+	possiblePaths := []string{
+		"index.html",
+		filepath.Join("..", "index.html"),
+		filepath.Join("internal", "handlers", "index.html"),
+	}
+
 	var err error
-	indexTemplate, err = template.ParseFiles(path)
-	return err
+	for _, path := range possiblePaths {
+		if _, statErr := os.Stat(path); statErr == nil {
+			indexTemplate, err = template.ParseFiles(path)
+			if err == nil {
+				return
+			}
+		}
+	}
+
+	log.Fatalf("Failed to find and parse index.html in any of: %v", possiblePaths)
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
